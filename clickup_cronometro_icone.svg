@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="top" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#f500c8"/>
+      <stop offset=".5" stop-color="#ff4b7d"/>
+      <stop offset="1" stop-color="#ffc400"/>
+    </linearGradient>
+    <linearGradient id="bottom" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0" stop-color="#7934ff"/>
+      <stop offset="1" stop-color="#16c7e8"/>
+    </linearGradient>
+    <linearGradient id="watch" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fff"/>
+      <stop offset="1" stop-color="#d9dce5"/>
+    </linearGradient>
+    <radialGradient id="bg">
+      <stop offset="0" stop-color="#17171d"/>
+      <stop offset="1" stop-color="#0b0b0f"/>
+    </radialGradient>
+    <filter id="shadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="8" stdDeviation="8" flood-opacity=".35"/>
+    </filter>
+  </defs>
+
+  <rect width="512" height="512" rx="76" fill="url(#bg)"/>
+
+  <!-- ClickUp-inspired chevron -->
+  <path d="M108 154 L233 62 Q256 45 279 62 L404 154 Q418 165 407 179 L377 216 Q367 228 354 218 L256 143 L158 218 Q145 228 135 216 L105 179 Q94 165 108 154Z"
+        fill="url(#top)" filter="url(#shadow)"/>
+  <path d="M91 259 Q104 246 117 258 L164 302 Q196 331 232 332 Q268 333 301 304 L349 260 Q362 248 375 261 L399 285 Q410 296 399 307 L339 363 Q303 397 256 397 Q209 397 172 363 L67 284 Q57 273 68 262Z"
+        fill="url(#bottom)" filter="url(#shadow)"/>
+
+  <!-- Stopwatch -->
+  <g filter="url(#shadow)">
+    <rect x="294" y="220" width="64" height="25" rx="9" fill="url(#watch)"/>
+    <rect x="314" y="239" width="25" height="22" rx="5" fill="url(#watch)"/>
+    <circle cx="326" cy="335" r="92" fill="#0c0c10" stroke="url(#watch)" stroke-width="18"/>
+    <circle cx="326" cy="335" r="7" fill="#fff"/>
+    <path d="M326 335 L369 291" stroke="#fff" stroke-width="12" stroke-linecap="round"/>
+    <path d="M326 269 V280 M326 390 V401 M260 335 H271 M381 335 H392"
+          stroke="#fff" stroke-width="7" stroke-linecap="round"/>
+  </g>
+
+  <!-- speed marks -->
+  <g fill="#ffbf16">
+    <rect x="390" y="221" width="10" height="38" rx="5" transform="rotate(18 395 240)"/>
+    <rect x="417" y="245" width="10" height="38" rx="5" transform="rotate(42 422 264)"/>
+    <rect x="434" y="281" width="10" height="38" rx="5" transform="rotate(68 439 300)"/>
+  </g>
+</svg>

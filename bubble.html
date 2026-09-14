@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <title>ClickUp Timer - bolinha</title>
+    <style>
+      * { box-sizing: border-box; }
+      html, body {
+        margin: 0; height: 100%; background: transparent; overflow: hidden;
+        user-select: none; cursor: default;
+        font: 13px/1 'Segoe UI', Inter, sans-serif;
+      }
+
+      #pill {
+        -webkit-app-region: drag;
+        position: relative;
+        height: 100%; margin: 2px;
+        display: flex; align-items: center; gap: 9px; padding: 0 8px 0 6px;
+        border-radius: 28px;
+        background: rgba(28, 30, 33, 0.42);
+        border: 1px solid rgba(255, 255, 255, 0.14);
+        backdrop-filter: blur(14px) saturate(140%);
+        box-shadow: 0 6px 18px rgba(0, 0, 0, 0.28);
+        opacity: var(--op, 0.72);
+        transition: opacity 0.16s ease, background 0.16s ease;
+      }
+      #pill:hover { opacity: 1; background: rgba(28, 30, 33, 0.62); }
+      #pill.running { border-color: rgba(123, 104, 238, 0.65); }
+
+      /* logo */
+      #logo {
+        width: 38px; height: 38px; flex: none; border-radius: 50%;
+        background: linear-gradient(135deg, #7b68ee 0%, #a78bfa 100%);
+        display: grid; place-items: center; color: #fff;
+        box-shadow: 0 2px 8px rgba(123, 104, 238, 0.45);
+        overflow: hidden; position: relative;
+      }
+      #logo img { width: 100%; height: 100%; object-fit: contain; display: block; }
+      /* com a marca propria o circulo roxo sai de cena */
+      #logo:has(img) { background: none; box-shadow: none; }
+      #logo:has(img) #ring { inset: -2px; border-radius: 11px; }
+      #ring { position: absolute; inset: -3px; border-radius: 50%; border: 2px solid transparent; pointer-events: none; }
+      #pill.running #ring { border-color: #2fbf71; animation: pulse 1.6s ease-in-out infinite; }
+      @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.2; } }
+
+      /* texto - usa toda a largura; abre espaco para os botoes so no hover */
+      #info {
+        flex: 1; min-width: 0; overflow: hidden;
+        padding-right: 2px; transition: padding-right 0.16s ease;
+      }
+      #pill:hover #info { padding-right: 56px; }
+      #time {
+        font: 600 17px/1.1 'Segoe UI', Consolas, monospace;
+        font-variant-numeric: tabular-nums; letter-spacing: 0.4px;
+        color: #fff; text-shadow: 0 1px 3px rgba(0, 0, 0, 0.75);
+      }
+      #pill.running #time { color: #d9d2ff; }
+      #task {
+        margin-top: 2px; font-size: 10px; line-height: 1.3;
+        color: rgba(255, 255, 255, 0.78);
+        text-shadow: 0 1px 3px rgba(0, 0, 0, 0.75);
+        display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+        overflow: hidden; overflow-wrap: anywhere;
+      }
+
+      /* acoes - flutuam sobre a pilula, sem roubar largura do texto */
+      #acts {
+        position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
+        display: flex; gap: 4px;
+        opacity: 0; pointer-events: none; transition: opacity 0.16s;
+      }
+      #pill:hover #acts { opacity: 1; pointer-events: auto; }
+      .act {
+        -webkit-app-region: no-drag;
+        width: 24px; height: 24px; border: 0; border-radius: 50%; cursor: pointer;
+        background: rgba(255, 255, 255, 0.18); color: #fff;
+        display: grid; place-items: center; transition: background 0.12s;
+        backdrop-filter: blur(6px);
+      }
+      .act:hover { background: rgba(255, 255, 255, 0.32); }
+      .act.stop:hover { background: #e5484d; }
+      .act:disabled { opacity: 0.3; cursor: default; }
+    </style>
+  </head>
+  <body>
+    <div id="pill" title="Clique para abrir o painel - arraste para mover">
+      <div id="logo">
+        <div id="ring"></div>
+        <img id="logoImg" src="logo.png" alt="" onerror="this.remove()" />
+      </div>
+
+      <div id="info">
+        <div id="time">00:00:00</div>
+        <div id="task">Nenhum timer</div>
+      </div>
+
+      <div id="acts">
+        <button class="act stop" id="btnStop" title="Parar timer" disabled>
+          <svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor"><rect x="5" y="5" width="14" height="14" rx="2" /></svg>
+        </button>
+        <button class="act" id="btnPanel" title="Abrir painel">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h10" /></svg>
+        </button>
+      </div>
+    </div>
+
+    <script>
+      const api = window.clickup;
+      const $ = (id) => document.getElementById(id);
+      let running = null;
+
+      // Logo personalizada: logo.png na pasta de dados do app (o main envia o caminho).
+      let logoShown = null;
+      function setLogo(url) {
+        if (!url || url === logoShown) return;
+        const img = new Image();
+        img.onload = () => {
+          logoShown = url;
+          const current = $('logo').querySelector('img');
+          if (current) current.remove();
+          $('logo').prepend(img);
+        };
+        img.src = url;
+      }
+
+      function fmt(ms) {
+        const s = Math.max(0, Math.floor(ms / 1000));
+        return [s / 3600, (s % 3600) / 60, s % 60]
+          .map((n) => String(Math.floor(n)).padStart(2, '0'))
+          .join(':');
+      }
+
+      function tick() {
+        if (running && running.start) $('time').textContent = fmt(Date.now() - Number(running.start));
+      }
+
+      function paint() {
+        $('pill').classList.toggle('running', !!running);
+        $('btnStop').disabled = !running;
+        if (running) {
+          $('task').textContent = running.taskName || 'Timer';
+          tick();
+        } else {
+          $('task').textContent = 'Nenhum timer';
+          $('time').textContent = '00:00:00';
+        }
+      }
+
+      function setOpacity(value) {
+        if (typeof value === 'number') document.documentElement.style.setProperty('--op', value);
+      }
+
+      api.onState((state) => {
+        if ('running' in state) { running = state.running; paint(); }
+        setOpacity(state.opacity);
+        setLogo(state.logo);
+      });
+
+      $('btnPanel').onclick = (e) => { e.stopPropagation(); api.toggleMain(); };
+      $('btnStop').onclick = async (e) => {
+        e.stopPropagation();
+        running = null;          // resposta instantanea; o main confirma depois
+        paint();
+        try { await api.stop(); } catch (err) { console.error(err); }
+      };
+      $('pill').onclick = () => api.toggleMain();
+
+      setInterval(tick, 1000);
+      api.current().catch(() => {});
+    </script>
+  </body>
+</html>

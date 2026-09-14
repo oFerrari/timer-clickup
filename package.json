@@ -5,7 +5,9 @@
   "main": "main.js",
   "scripts": {
     "start": "electron .",
-    "build": "electron-builder --win portable"
+    "build": "electron-builder --win portable",
+    "debug": "electron . --debug",
+    "dist": "electron-builder --win nsis"
   },
   "devDependencies": {
     "electron": "^31.0.0",
@@ -14,6 +16,40 @@
   "build": {
     "appId": "br.com.copasul.clickup-timer",
     "productName": "ClickUp Timer",
-    "files": ["main.js", "index.html", "package.json"]
+    "copyright": "Copasul",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "index.html",
+      "bubble.html",
+      "icon.ico",
+      "logo.png",
+      "tray-idle.ico",
+      "tray-running.ico",
+      "package.json"
+    ],
+    "win": {
+      "target": [
+        "nsis"
+      ],
+      "icon": "icon.ico",
+      "artifactName": "ClickUp-Timer-Setup-${version}.${ext}"
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "ClickUp Timer",
+      "runAfterFinish": true,
+      "deleteAppDataOnUninstall": false
+    }
+  },
+  "author": {
+    "name": "Copasul",
+    "email": "andrei.domingos@copasul.coop.br"
   }
 }

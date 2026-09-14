@@ -4,68 +4,364 @@
     <meta charset="utf-8" />
     <title>ClickUp Timer</title>
     <style>
+      /* ---------- Design tokens (paleta do ClickUp) ---------- */
+      :root {
+        --purple: #7b68ee;
+        --purple-hover: #6a57dd;
+        --purple-soft: #f1eefe;
+        --bg: #ffffff;
+        --bg-alt: #f7f8fa;
+        --surface: #ffffff;
+        --border: #e8e8ea;
+        --text: #292d34;
+        --muted: #7c828d;
+        --green: #2fbf71;
+        --danger: #e5484d;
+        --shadow: 0 1px 3px rgba(0, 0, 0, 0.06), 0 4px 12px rgba(0, 0, 0, 0.04);
+        --radius: 8px;
+      }
+      [data-theme='dark'] {
+        --purple-soft: #2f2a4d;
+        --bg: #1f2123;
+        --bg-alt: #26282b;
+        --surface: #2a2d30;
+        --border: #3a3d42;
+        --text: #e8e9ea;
+        --muted: #9ba0a6;
+        --shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+      }
+
       * { box-sizing: border-box; }
+      html, body { height: 100%; }
       body {
-        margin: 0; padding: 12px; height: 100vh; display: flex; flex-direction: column;
-        gap: 8px; background: #0f172a; color: #e2e8f0; user-select: none;
-        font: 13px 'Segoe UI', sans-serif;
+        margin: 0;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        background: var(--bg);
+        color: var(--text);
+        user-select: none;
+        font: 13px/1.45 'Segoe UI', Inter, -apple-system, sans-serif;
+        -webkit-font-smoothing: antialiased;
       }
-      #clock { font: 700 26px Consolas, monospace; color: #22c55e; text-align: center; }
-      #task { font-weight: 600; text-align: center; min-height: 34px; }
-      .row { display: flex; gap: 8px; }
-      button {
-        flex: 1; padding: 8px; border: 0; border-radius: 6px; cursor: pointer;
-        background: #334155; color: #e2e8f0; font-size: 13px;
+      button { font-family: inherit; }
+
+      /* ---------- Barra de titulo ---------- */
+      #titlebar {
+        -webkit-app-region: drag;
+        display: flex; align-items: center; gap: 8px;
+        height: 40px; padding: 0 6px 0 12px; flex: none;
+        background: var(--bg); border-bottom: 1px solid var(--border);
       }
-      button:hover:not(:disabled) { background: #475569; }
-      button:disabled { opacity: 0.45; cursor: default; }
-      #stop { background: #b91c1c; }
-      #stop:hover:not(:disabled) { background: #dc2626; }
-      input {
-        width: 100%; padding: 7px; border: 1px solid #334155; border-radius: 6px;
-        background: #1e293b; color: #e2e8f0; font-size: 13px;
+      #logo {
+        width: 22px; height: 22px; border-radius: 6px; flex: none;
+        background: linear-gradient(135deg, #7b68ee, #a78bfa);
+        display: grid; place-items: center; color: #fff; font-size: 12px;
+        overflow: hidden;
       }
-      #list {
-        flex: 1; overflow-y: auto; background: #1e293b; border: 1px solid #334155;
-        border-radius: 6px;
+      #logo img { width: 100%; height: 100%; object-fit: contain; display: block; }
+      #logo:has(img) { background: none; }
+      #titlebar h1 { font-size: 12.5px; font-weight: 600; margin: 0; letter-spacing: 0.1px; }
+      #titlebar .spacer { flex: 1; }
+      .winbtn {
+        -webkit-app-region: no-drag;
+        width: 28px; height: 28px; border: 0; border-radius: 6px; cursor: pointer;
+        background: transparent; color: var(--muted);
+        display: grid; place-items: center; font-size: 13px;
       }
-      .item { padding: 7px 9px; border-bottom: 1px solid #263449; cursor: pointer; }
-      .item:hover { background: #334155; }
-      .item b { display: block; font-weight: 500; }
-      .item span { color: #94a3b8; font-size: 11px; }
-      #status { color: #94a3b8; font-size: 11px; min-height: 26px; }
-      #setup { display: none; flex-direction: column; gap: 8px; }
+      .winbtn:hover { background: var(--bg-alt); color: var(--text); }
+      .winbtn[hidden], #logo[hidden] { display: none; }
+      .winbtn.back { color: var(--text); font-size: 15px; }
+      .winbtn.back:hover { background: var(--purple-soft); color: var(--purple); }
+      .winbtn.on { background: var(--purple-soft); color: var(--purple); }
+      .winbtn.close:hover { background: var(--danger); color: #fff; }
+
+      /* ---------- Telas ---------- */
+      .screen { flex: 1; display: none; flex-direction: column; min-height: 0; }
+      .screen.on { display: flex; }
+
+      /* ---------- Card do timer ---------- */
+      #now {
+        margin: 12px 12px 0; padding: 14px; flex: none;
+        background: var(--surface); border: 1px solid var(--border);
+        border-radius: 12px; box-shadow: var(--shadow);
+        transition: background 0.15s, border-color 0.15s;
+      }
+      #now.running { border-color: var(--purple); background: var(--purple-soft); }
+      .now-head { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
+      .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); flex: none; }
+      #now.running .dot { background: var(--green); animation: pulse 1.6s infinite; }
+      @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.25; } }
+      .now-head span {
+        font-size: 10.5px; font-weight: 700; letter-spacing: 0.8px;
+        text-transform: uppercase; color: var(--muted);
+      }
+      #nowTask {
+        font-size: 14px; font-weight: 600; margin-bottom: 10px;
+        display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+        overflow: hidden; min-height: 20px;
+      }
+      #nowTask.empty { color: var(--muted); font-weight: 500; }
+      #clock {
+        font: 600 30px/1 'Segoe UI', Consolas, monospace;
+        letter-spacing: 1px; font-variant-numeric: tabular-nums;
+        margin-bottom: 12px; color: var(--text);
+      }
+      #now.running #clock { color: var(--purple); }
+      .now-actions { display: flex; gap: 8px; }
+
+      .btn {
+        display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+        padding: 8px 12px; border: 1px solid var(--border); border-radius: var(--radius);
+        background: var(--surface); color: var(--text); font-size: 12.5px; font-weight: 600;
+        cursor: pointer; transition: background 0.12s, border-color 0.12s, transform 0.08s;
+      }
+      .btn:hover:not(:disabled) { background: var(--bg-alt); }
+      .btn:active:not(:disabled) { transform: translateY(1px); }
+      .btn:disabled { opacity: 0.45; cursor: default; }
+      .btn.primary { background: var(--purple); border-color: var(--purple); color: #fff; }
+      .btn.primary:hover:not(:disabled) { background: var(--purple-hover); }
+      .btn.danger { background: var(--danger); border-color: var(--danger); color: #fff; }
+      .btn.danger:hover:not(:disabled) { filter: brightness(1.08); }
+      .btn.grow { flex: 1; }
+
+      /* ---------- Barra de ferramentas ---------- */
+      #toolbar { display: flex; gap: 8px; padding: 12px 12px 8px; flex: none; }
+      .search { position: relative; flex: 1; }
+      .search svg { position: absolute; left: 9px; top: 50%; transform: translateY(-50%); color: var(--muted); }
+      input[type='text'], input[type='password'], select {
+        width: 100%; padding: 8px 10px; border: 1px solid var(--border);
+        border-radius: var(--radius); background: var(--bg-alt); color: var(--text);
+        font: inherit; outline: none; transition: border-color 0.12s, box-shadow 0.12s;
+      }
+      .search input { padding-left: 30px; }
+      input:focus, select:focus { border-color: var(--purple); box-shadow: 0 0 0 3px rgba(123, 104, 238, 0.15); background: var(--surface); }
+      .icon-btn {
+        width: 34px; height: 34px; flex: none; border: 1px solid var(--border);
+        border-radius: var(--radius); background: var(--surface); color: var(--muted);
+        display: grid; place-items: center; cursor: pointer;
+      }
+      .icon-btn:hover { background: var(--bg-alt); color: var(--purple); }
+      .icon-btn.spin svg { animation: spin 0.8s linear infinite; }
+      @keyframes spin { to { transform: rotate(360deg); } }
+
+      /* ---------- Segmento Minhas/Todas ---------- */
+      #scope { display: flex; gap: 4px; padding: 0 12px 8px; flex: none; }
+      .chip {
+        padding: 5px 12px; border-radius: 999px; border: 1px solid var(--border);
+        background: var(--surface); color: var(--muted); font-size: 12px; font-weight: 600;
+        cursor: pointer;
+      }
+      .chip:hover { color: var(--text); }
+      .chip.on { background: var(--purple); border-color: var(--purple); color: #fff; }
+
+      /* ---------- Lista ---------- */
+      #list { flex: 1; overflow-y: auto; padding: 0 12px 8px; min-height: 0; }
+      .item {
+        display: flex; align-items: center; gap: 9px; padding: 9px 10px; margin-bottom: 4px;
+        border: 1px solid transparent; border-radius: var(--radius); cursor: pointer;
+        transition: background 0.1s, border-color 0.1s;
+      }
+      .item:hover { background: var(--bg-alt); border-color: var(--border); }
+      .item:active { transform: scale(0.995); }
+      .item.active { background: var(--purple-soft); border-color: var(--purple); }
+      .item .sdot { width: 9px; height: 9px; border-radius: 50%; flex: none; }
+      .item .txt { flex: 1; min-width: 0; }
+      .item .name {
+        font-weight: 500; font-size: 12.8px; white-space: nowrap;
+        overflow: hidden; text-overflow: ellipsis;
+      }
+      .item .meta {
+        color: var(--muted); font-size: 11px; white-space: nowrap;
+        overflow: hidden; text-overflow: ellipsis;
+      }
+      .item .play {
+        width: 26px; height: 26px; flex: none; border-radius: 50%; border: 0;
+        background: var(--purple); color: #fff; display: grid; place-items: center;
+        opacity: 0; transition: opacity 0.1s; cursor: pointer;
+      }
+      .item:hover .play, .item.active .play { opacity: 1; }
+      .item .play:hover { background: var(--purple-hover); }
+      .item .play.stop { background: var(--danger); opacity: 1; }
+      .item .play.stop:hover { filter: brightness(1.12); background: var(--danger); }
+
+      .empty { text-align: center; color: var(--muted); padding: 32px 16px; }
+      .empty .big { font-size: 28px; margin-bottom: 8px; opacity: 0.5; }
+      .empty p { margin: 4px 0; font-size: 12px; }
+
+      /* ---------- Rodape ---------- */
+      #footer {
+        display: flex; align-items: center; gap: 8px; flex: none;
+        padding: 8px 12px; border-top: 1px solid var(--border);
+        background: var(--bg-alt); font-size: 11px; color: var(--muted);
+      }
+      #avatar {
+        width: 20px; height: 20px; border-radius: 50%; flex: none; color: #fff;
+        display: grid; place-items: center; font-size: 9px; font-weight: 700;
+        background: var(--purple);
+      }
+      #footerText { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+      /* ---------- Setup / Configuracoes ---------- */
+      .form { gap: 10px; padding: 16px; overflow-y: auto; }
+      .form h2 { font-size: 15px; margin: 0; }
+      .form label { font-size: 11.5px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
+      .form p { margin: 0; font-size: 12px; color: var(--muted); }
+      pre#diag {
+        margin: 0; padding: 10px; border: 1px solid var(--border); border-radius: var(--radius);
+        background: var(--bg-alt); font: 11px/1.5 Consolas, monospace; white-space: pre-wrap;
+        max-height: 200px; overflow-y: auto; user-select: text; display: none;
+      }
+      .switch {
+        display: flex; align-items: center; justify-content: space-between; gap: 10px;
+        padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius);
+        background: var(--bg-alt);
+      }
+      .switch b { font-size: 12.5px; font-weight: 600; color: var(--text); }
+      .switch small { display: block; color: var(--muted); font-size: 11px; font-weight: 400; }
+      .switch.stack { display: block; }
+      input[type='range'] {
+        -webkit-appearance: none; width: 100%; height: 4px; margin: 12px 0 2px;
+        border-radius: 999px; background: var(--border); outline: none; cursor: pointer;
+      }
+      input[type='range']::-webkit-slider-thumb {
+        -webkit-appearance: none; width: 15px; height: 15px; border-radius: 50%;
+        background: var(--purple); border: 2px solid var(--surface);
+        box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25); cursor: grab;
+      }
+      input[type='range']::-webkit-slider-thumb:active { cursor: grabbing; transform: scale(1.12); }
+      .range-legend { display: flex; justify-content: space-between; color: var(--muted); font-size: 10px; }
+
+      /* ---------- Toast ---------- */
+      #toast {
+        position: fixed; left: 12px; right: 12px; bottom: 44px; z-index: 50;
+        padding: 9px 12px; border-radius: var(--radius); font-size: 12px; font-weight: 500;
+        background: var(--text); color: var(--bg); box-shadow: var(--shadow);
+        opacity: 0; transform: translateY(6px); transition: opacity 0.15s, transform 0.15s;
+        pointer-events: none;
+      }
+      #toast.on { opacity: 1; transform: translateY(0); }
+      #toast.err { background: var(--danger); color: #fff; }
+
       ::-webkit-scrollbar { width: 8px; }
-      ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+      ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+      ::-webkit-scrollbar-thumb:hover { background: var(--muted); }
     </style>
   </head>
   <body>
-    <div id="setup">
-      <p>Cole seu token do ClickUp (Settings → Apps → API Token):</p>
-      <input id="token" type="password" placeholder="pk_..." />
-      <button id="saveToken">Salvar</button>
+    <div id="titlebar">
+      <button class="winbtn back" id="btnBack" title="Voltar" hidden>&#8592;</button>
+      <div id="logo"><img src="logo.png" alt="" onerror="this.remove()" /></div>
+      <h1>ClickUp Timer</h1>
+      <div class="spacer"></div>
+      <button class="winbtn" id="btnBubble" title="Bolinha flutuante">&#9673;</button>
+      <button class="winbtn" id="btnTheme" title="Tema claro/escuro">&#9789;</button>
+      <button class="winbtn" id="btnSettings" title="Configuracoes">&#9881;</button>
+      <button class="winbtn" id="btnMin" title="Minimizar">&#8211;</button>
+      <button class="winbtn close" id="btnClose" title="Esconder na bandeja">&#10005;</button>
     </div>
 
-    <div id="app" style="display: none; flex: 1; flex-direction: column; gap: 8px">
-      <div id="clock">00:00:00</div>
-      <div id="task">Nenhum timer rodando</div>
-      <div class="row">
-        <button id="stop" disabled>⏹ Parar</button>
-        <button id="refresh">⟳ Atualizar</button>
-      </div>
-      <input id="filter" placeholder="Filtrar tarefas..." />
-      <div id="list"></div>
-      <div id="status"></div>
+    <!-- ===== Tela: primeiro acesso ===== -->
+    <div class="screen form" id="screenSetup">
+      <h2>Conectar ao ClickUp</h2>
+      <p>Cole seu <b>Personal API Token</b>. No ClickUp: foto do perfil &rarr; Settings &rarr; Apps &rarr; API Token.</p>
+      <input type="password" id="setupToken" placeholder="pk_0000000_XXXXXXXXXXXXXXXX" />
+      <button class="btn primary" id="setupSave">Conectar</button>
+      <p>O token fica salvo apenas neste computador.</p>
     </div>
+
+    <!-- ===== Tela: principal ===== -->
+    <div class="screen" id="screenMain">
+      <div id="now">
+        <div class="now-head"><span class="dot"></span><span id="nowLabel">Parado</span></div>
+        <div id="nowTask" class="empty">Nenhum timer rodando</div>
+        <div id="clock">00:00:00</div>
+        <div class="now-actions">
+          <button class="btn danger grow" id="btnStop" disabled>Parar timer</button>
+          <button class="btn" id="btnOpen" disabled title="Abrir tarefa no ClickUp">Abrir</button>
+        </div>
+      </div>
+
+      <div id="toolbar">
+        <div class="search">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+          <input type="text" id="filter" placeholder="Buscar tarefa..." />
+        </div>
+        <button class="icon-btn" id="btnRefresh" title="Atualizar">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M20 11a8 8 0 10-2.3 6.3"/><path d="M20 4v7h-7"/></svg>
+        </button>
+      </div>
+
+      <div id="scope">
+        <button class="chip on" data-scope="mine">Minhas tarefas</button>
+        <button class="chip" data-scope="all">Todas</button>
+      </div>
+
+      <div id="list"></div>
+
+      <div id="footer">
+        <div id="avatar">--</div>
+        <div id="footerText">Conectando...</div>
+      </div>
+    </div>
+
+    <!-- ===== Tela: configuracoes ===== -->
+    <div class="screen form" id="screenSettings">
+      <h2>Configuracoes</h2>
+
+      <div class="switch">
+        <div><b>Bolinha flutuante</b><small>Timer translucido sempre visivel na tela</small></div>
+        <button class="btn" id="cfgBubble">Ativar</button>
+      </div>
+
+      <div class="switch stack" id="opacityRow" style="display: none">
+        <b>Transparencia <span id="opacityValue" style="color: var(--purple)">72%</span></b>
+        <small>Opacidade quando o mouse nao esta em cima (no hover fica sempre 100%)</small>
+        <input type="range" id="cfgOpacity" min="15" max="100" step="5" value="72" />
+        <div class="range-legend"><span>Bem transparente</span><span>Solido</span></div>
+      </div>
+
+      <div class="switch">
+        <div><b>Iniciar com o Windows</b><small>Sobe minimizado na bandeja ao ligar o PC</small></div>
+        <button class="btn" id="cfgAutostart">Ativar</button>
+      </div>
+
+      <label>Personal API Token</label>
+      <input type="password" id="cfgToken" placeholder="Deixe em branco para manter o atual" />
+      <label>Workspace</label>
+      <select id="cfgTeam"></select>
+      <div style="display: flex; gap: 8px">
+        <button class="btn primary grow" id="cfgSave">Salvar</button>
+        <button class="btn grow" id="cfgTest">Testar conexao</button>
+      </div>
+      <pre id="diag"></pre>
+    </div>
+
+    <div id="toast"></div>
 
     <script>
-      const { ipcRenderer } = require('electron');
+      const api = window.clickup;
       const $ = (id) => document.getElementById(id);
 
       let tasks = [];
       let running = null;
+      let scope = 'mine';
+      let user = null;
+      let bubbleOn = false;
+      let bubbleOpacity = 0.72;
+      let autostart = false;
+      let pendingStart = null;   // tarefa cujo start ainda esta em voo
+      let toastTimer = null;
 
-      const setStatus = (text) => ($('status').textContent = text);
+      // ---------- utilidades ----------
+      function toast(text, isError) {
+        const el = $('toast');
+        el.textContent = text;
+        el.classList.toggle('err', !!isError);
+        el.classList.add('on');
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => el.classList.remove('on'), isError ? 6000 : 2200);
+      }
 
       function fmt(ms) {
         const s = Math.max(0, Math.floor(ms / 1000));
@@ -74,104 +370,329 @@
           .join(':');
       }
 
-      async function call(channel, ...args) {
+      function initials(name) {
+        return (name || '?')
+          .split(/[\s._-]+/).filter(Boolean).slice(0, 2)
+          .map((p) => p[0].toUpperCase()).join('');
+      }
+
+      let currentScreen = 'screenSetup';
+
+      function show(screen) {
+        currentScreen = screen;
+        for (const el of document.querySelectorAll('.screen')) el.classList.remove('on');
+        $(screen).classList.add('on');
+
+        const inSettings = screen === 'screenSettings';
+        $('btnBack').hidden = !inSettings;   // seta no topo no lugar do botao grande
+        $('logo').hidden = inSettings;
+        $('btnSettings').classList.toggle('on', inSettings);
+      }
+
+      async function call(fn, ...args) {
         try {
-          return await ipcRenderer.invoke(channel, ...args);
+          return await api[fn](...args);
         } catch (err) {
-          setStatus('Erro: ' + String(err.message || err).replace(/^Error: /, ''));
+          const msg = String(err && err.message ? err.message : err)
+            .replace(/^Error: /, '')
+            .replace(/^Error invoking remote method '[^']+': ?/, '');
+          console.error('[ui]', fn, msg);
+          toast(msg, true);
           return null;
         }
       }
 
-      async function refreshCurrent() {
-        running = await call('current');
-        $('stop').disabled = !running;
+      // ---------- pintura do estado ----------
+      function tick() {
+        if (running && running.start) {
+          $('clock').textContent = fmt(Date.now() - Number(running.start));
+        }
+      }
+
+      function paintNow() {
+        const card = $('now');
+        $('btnStop').disabled = !running;
+        $('btnOpen').disabled = !running || !running.url;
+
         if (running) {
-          $('task').textContent = running.task?.name || 'Timer sem tarefa';
+          card.classList.add('running');
+          $('nowLabel').textContent = 'Rodando agora';
+          $('nowTask').textContent = running.taskName;
+          $('nowTask').classList.remove('empty');
+          tick();
         } else {
-          $('task').textContent = 'Nenhum timer rodando';
+          card.classList.remove('running');
+          $('nowLabel').textContent = 'Parado';
+          $('nowTask').textContent = 'Nenhum timer rodando';
+          $('nowTask').classList.add('empty');
           $('clock').textContent = '00:00:00';
         }
       }
 
+      function paintAll() { paintNow(); render(); }
+
+      async function refreshCurrent() {
+        const entry = await call('current');
+        if (pendingStart) return;        // nao atropela um start em voo
+        running = entry;
+        paintAll();
+      }
+
+      // O processo principal avisa quando o timer muda (inclusive pela bolinha).
+      api.onState((state) => {
+        if (pendingStart && (!state.running || state.running.taskId !== pendingStart)) return;
+        running = state.running;
+        paintAll();
+      });
+
+      // ---------- tarefas ----------
       async function refreshTasks() {
-        setStatus('Carregando tarefas...');
-        const result = await call('tasks');
-        if (!result) return;
-        tasks = result;
-        setStatus(`${tasks.length} tarefas atribuídas a você.`);
+        const btn = $('btnRefresh');
+        btn.classList.add('spin');
+        if (!tasks.length) $('list').innerHTML = '<div class="empty"><p>Carregando tarefas...</p></div>';
+
+        const result = await call('tasks', scope);
+        btn.classList.remove('spin');
+        if (!result) {
+          $('list').innerHTML = '<div class="empty"><div class="big">&#9888;</div><p>Nao foi possivel carregar.</p><p>Veja a mensagem em vermelho ou use Configuracoes &rarr; Testar conexao.</p></div>';
+          return;
+        }
+
+        tasks = result.tasks || [];
+        $('footerText').textContent =
+          user ? `${user.username} - ${result.workspace} - ${tasks.length} tarefas` : `${result.workspace} - ${tasks.length} tarefas`;
         render();
       }
 
       function render() {
         const needle = $('filter').value.trim().toLowerCase();
-        $('list').innerHTML = '';
-        for (const task of tasks) {
-          const hay = `${task.name} ${task.list} ${task.status}`.toLowerCase();
-          if (needle && !hay.includes(needle)) continue;
-          const div = document.createElement('div');
-          div.className = 'item';
-          div.innerHTML = `<b></b><span></span>`;
-          div.querySelector('b').textContent = task.name;
-          div.querySelector('span').textContent = [task.list, task.status]
-            .filter(Boolean)
-            .join(' · ');
-          div.onclick = () => startTask(task);
-          $('list').appendChild(div);
+        const list = $('list');
+        list.innerHTML = '';
+
+        const visible = tasks.filter((t) =>
+          !needle || `${t.name} ${t.list} ${t.space} ${t.status}`.toLowerCase().includes(needle)
+        );
+
+        if (!visible.length) {
+          list.innerHTML = tasks.length
+            ? '<div class="empty"><div class="big">&#128269;</div><p>Nenhuma tarefa com esse filtro.</p></div>'
+            : '<div class="empty"><div class="big">&#128203;</div><p>Nenhuma tarefa encontrada neste workspace.</p><p>Tente o filtro <b>Todas</b> ou troque o workspace em Configuracoes.</p></div>';
+          return;
+        }
+
+        for (const task of visible) {
+          const item = document.createElement('div');
+          item.className = 'item' + (running && running.taskId === task.id ? ' active' : '');
+
+          const dot = document.createElement('div');
+          dot.className = 'sdot';
+          dot.style.background = task.color || '#7b68ee';
+
+          const txt = document.createElement('div');
+          txt.className = 'txt';
+          const name = document.createElement('div');
+          name.className = 'name';
+          name.textContent = task.name;
+          const meta = document.createElement('div');
+          meta.className = 'meta';
+          meta.textContent = [task.list, task.status].filter(Boolean).join(' - ');
+          txt.append(name, meta);
+
+          const isRunning = !!(running && running.taskId === task.id);
+          const play = document.createElement('button');
+          play.className = 'play' + (isRunning ? ' stop' : '');
+          play.title = isRunning ? 'Parar timer' : 'Iniciar timer';
+          play.innerHTML = isRunning
+            ? '<svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor"><rect x="5" y="5" width="14" height="14" rx="2"/></svg>'
+            : '<svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>';
+          play.onclick = (e) => { e.stopPropagation(); isRunning ? stopCurrent() : startTask(task); };
+
+          item.append(dot, txt, play);
+          item.onclick = () => (isRunning ? stopCurrent() : startTask(task));
+          item.oncontextmenu = (e) => { e.preventDefault(); api.openExternal(task.url); };
+          list.appendChild(item);
         }
       }
 
+      // Start otimista: a interface muda no clique, a API confirma depois.
       async function startTask(task) {
-        setStatus('Iniciando: ' + task.name);
-        if (await call('start', task.id)) {
-          setStatus('Rodando: ' + task.name);
-          refreshCurrent();
+        if (running && running.taskId === task.id) return;
+
+        pendingStart = task.id;
+        running = { id: 'local', start: Date.now(), taskId: task.id, taskName: task.name, url: task.url };
+        paintAll();
+        toast('Rodando: ' + task.name);
+
+        const entry = await call('start', task.id);
+        pendingStart = null;
+
+        if (entry) {
+          running = entry;         // troca pelo horario real do ClickUp
+          paintAll();
+        } else {
+          refreshCurrent();        // deu erro: volta para a verdade do servidor
         }
       }
 
-      $('stop').onclick = async () => {
-        setStatus('Parando...');
-        await call('stop');
-        setStatus('Timer parado.');
-        refreshCurrent();
-      };
-      $('refresh').onclick = refreshTasks;
+      // ---------- eventos ----------
+      // Parada otimista: some do card na hora, a API confirma depois.
+      async function stopCurrent() {
+        running = null;
+        paintAll();
+        toast('Timer parado.');
+        const ok = await call('stop');
+        if (!ok) refreshCurrent();
+      }
+
+      $('btnStop').onclick = stopCurrent;
+      $('btnOpen').onclick = () => running && running.url && api.openExternal(running.url);
+      $('btnRefresh').onclick = refreshTasks;
       $('filter').oninput = render;
 
-      $('saveToken').onclick = async () => {
-        const token = $('token').value.trim();
-        if (!token) return;
-        const username = await call('save-token', token);
-        if (username) start(username);
+      for (const chip of document.querySelectorAll('.chip')) {
+        chip.onclick = () => {
+          for (const c of document.querySelectorAll('.chip')) c.classList.remove('on');
+          chip.classList.add('on');
+          scope = chip.dataset.scope;
+          tasks = [];
+          api.setScope(scope);
+          refreshTasks();
+        };
+      }
+
+      $('btnMin').onclick = () => api.minimize();
+      $('btnClose').onclick = () => api.hide();
+      $('btnTheme').onclick = () => {
+        const next = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
+        document.documentElement.dataset.theme = next;
+        api.setTheme(next);
       };
 
-      ipcRenderer.on('refresh', refreshCurrent);
+      function paintBubbleState() {
+        $('btnBubble').classList.toggle('on', bubbleOn);
+        $('cfgBubble').textContent = bubbleOn ? 'Desativar' : 'Ativar';
+        $('cfgBubble').classList.toggle('primary', !bubbleOn);
+        // O controle de transparencia so faz sentido com a bolinha ligada.
+        $('opacityRow').style.display = bubbleOn ? 'block' : 'none';
+        $('cfgOpacity').value = String(Math.round(bubbleOpacity * 100));
+        $('opacityValue').textContent = Math.round(bubbleOpacity * 100) + '%';
+      }
 
-      // Cronômetro local; a cada 20s confere com o ClickUp.
+      $('cfgOpacity').oninput = (e) => {
+        bubbleOpacity = Number(e.target.value) / 100;
+        $('opacityValue').textContent = e.target.value + '%';
+        api.setBubbleOpacity(bubbleOpacity);   // aplica ao vivo na bolinha
+      };
+
+      async function toggleBubble() {
+        bubbleOn = !bubbleOn;
+        paintBubbleState();
+        await call('setBubble', bubbleOn);
+      }
+      $('btnBubble').onclick = toggleBubble;
+
+      function paintAutostart() {
+        $('cfgAutostart').textContent = autostart ? 'Desativar' : 'Ativar';
+        $('cfgAutostart').classList.toggle('primary', !autostart);
+      }
+
+      $('cfgAutostart').onclick = async () => {
+        autostart = !autostart;
+        paintAutostart();
+        await call('setAutostart', autostart);
+        toast(autostart ? 'Vai abrir junto com o Windows.' : 'Nao abre mais sozinho.');
+      };
+      $('cfgBubble').onclick = toggleBubble;
+
+      $('btnSettings').onclick = () => {
+        if (currentScreen === 'screenSettings') return show('screenMain');   // clicar de novo fecha
+        $('diag').style.display = 'none';
+        show('screenSettings');
+      };
+      $('btnBack').onclick = () => show('screenMain');
+
+      $('cfgSave').onclick = async () => {
+        const token = $('cfgToken').value.trim();
+        if (token) {
+          const info = await call('saveToken', token);
+          if (!info) return;
+          applyBootstrap(info);
+        } else {
+          await call('setTeam', $('cfgTeam').value);
+        }
+        $('cfgToken').value = '';
+        tasks = [];
+        toast('Configuracoes salvas.');
+        show('screenMain');
+        refreshCurrent();
+        refreshTasks();
+      };
+
+      $('cfgTest').onclick = async () => {
+        const pre = $('diag');
+        pre.style.display = 'block';
+        pre.textContent = 'Testando...';
+        const report = await call('diagnose');
+        pre.textContent = report || 'Falhou. Veja a mensagem em vermelho.';
+      };
+
+      $('setupSave').onclick = async () => {
+        const token = $('setupToken').value.trim();
+        if (!token) return toast('Cole o token primeiro.', true);
+        const info = await call('saveToken', token);
+        if (!info) return;
+        applyBootstrap(info);
+        show('screenMain');
+        refreshCurrent();
+        refreshTasks();
+      };
+      $('setupToken').onkeydown = (e) => { if (e.key === 'Enter') $('setupSave').click(); };
+
+      api.onRefresh(refreshCurrent);
+
+      // Cronometro local; a cada 20s confere com o ClickUp.
       setInterval(() => {
-        if (!running?.start) return;
-        const elapsed = fmt(Date.now() - Number(running.start));
-        $('clock').textContent = elapsed;
-        ipcRenderer.send('tooltip', `ClickUp Timer — ${elapsed} · ${running.task?.name || ''}`);
+        tick();
+        if (running) api.tooltip(`ClickUp Timer - ${$('clock').textContent} - ${running.taskName || ''}`);
       }, 1000);
       setInterval(refreshCurrent, 20000);
 
-      function start(username) {
-        $('setup').style.display = 'none';
-        $('app').style.display = 'flex';
-        setStatus(`Conectado como ${username}.`);
-        refreshCurrent();
-        refreshTasks();
+      // ---------- inicializacao ----------
+      function applyBootstrap(info) {
+        user = info.user || null;
+        scope = info.scope || 'mine';
+        bubbleOn = !!info.bubble;
+        if (typeof info.bubbleOpacity === 'number') bubbleOpacity = info.bubbleOpacity;
+        autostart = !!info.autostart;
+        paintAutostart();
+        paintBubbleState();
+        for (const c of document.querySelectorAll('.chip')) c.classList.toggle('on', c.dataset.scope === scope);
+
+        if (user) {
+          $('avatar').textContent = initials(user.username);
+          if (user.color) $('avatar').style.background = user.color;
+        }
+
+        const sel = $('cfgTeam');
+        sel.innerHTML = '';
+        for (const w of info.workspaces || []) {
+          const opt = document.createElement('option');
+          opt.value = w.id;
+          opt.textContent = `${w.name} (${w.id})`;
+          if (w.id === info.teamId) opt.selected = true;
+          sel.appendChild(opt);
+        }
       }
 
       (async () => {
         const info = await call('bootstrap');
-        if (!info) return;
-        if (info.needsToken) {
-          $('setup').style.display = 'flex';
-        } else {
-          start(info.username);
-        }
+        if (!info) { show('screenSetup'); return; }
+        document.documentElement.dataset.theme = info.theme || 'light';
+        if (info.needsToken) { show('screenSetup'); return; }
+        applyBootstrap(info);
+        show('screenMain');
+        refreshCurrent();
+        refreshTasks();
       })();
     </script>
   </body>
