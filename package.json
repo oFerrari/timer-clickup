@@ -1,0 +1,19 @@
+{
+  "name": "clickup-timer",
+  "version": "1.0.0",
+  "description": "Mini painel de bandeja para o time tracking do ClickUp",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder --win portable"
+  },
+  "devDependencies": {
+    "electron": "^31.0.0",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "br.com.copasul.clickup-timer",
+    "productName": "ClickUp Timer",
+    "files": ["main.js", "index.html", "package.json"]
+  }
+}

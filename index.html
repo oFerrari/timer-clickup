@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <title>ClickUp Timer</title>
+    <style>
+      * { box-sizing: border-box; }
+      body {
+        margin: 0; padding: 12px; height: 100vh; display: flex; flex-direction: column;
+        gap: 8px; background: #0f172a; color: #e2e8f0; user-select: none;
+        font: 13px 'Segoe UI', sans-serif;
+      }
+      #clock { font: 700 26px Consolas, monospace; color: #22c55e; text-align: center; }
+      #task { font-weight: 600; text-align: center; min-height: 34px; }
+      .row { display: flex; gap: 8px; }
+      button {
+        flex: 1; padding: 8px; border: 0; border-radius: 6px; cursor: pointer;
+        background: #334155; color: #e2e8f0; font-size: 13px;
+      }
+      button:hover:not(:disabled) { background: #475569; }
+      button:disabled { opacity: 0.45; cursor: default; }
+      #stop { background: #b91c1c; }
+      #stop:hover:not(:disabled) { background: #dc2626; }
+      input {
+        width: 100%; padding: 7px; border: 1px solid #334155; border-radius: 6px;
+        background: #1e293b; color: #e2e8f0; font-size: 13px;
+      }
+      #list {
+        flex: 1; overflow-y: auto; background: #1e293b; border: 1px solid #334155;
+        border-radius: 6px;
+      }
+      .item { padding: 7px 9px; border-bottom: 1px solid #263449; cursor: pointer; }
+      .item:hover { background: #334155; }
+      .item b { display: block; font-weight: 500; }
+      .item span { color: #94a3b8; font-size: 11px; }
+      #status { color: #94a3b8; font-size: 11px; min-height: 26px; }
+      #setup { display: none; flex-direction: column; gap: 8px; }
+      ::-webkit-scrollbar { width: 8px; }
+      ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+    </style>
+  </head>
+  <body>
+    <div id="setup">
+      <p>Cole seu token do ClickUp (Settings → Apps → API Token):</p>
+      <input id="token" type="password" placeholder="pk_..." />
+      <button id="saveToken">Salvar</button>
+    </div>
+
+    <div id="app" style="display: none; flex: 1; flex-direction: column; gap: 8px">
+      <div id="clock">00:00:00</div>
+      <div id="task">Nenhum timer rodando</div>
+      <div class="row">
+        <button id="stop" disabled>⏹ Parar</button>
+        <button id="refresh">⟳ Atualizar</button>
+      </div>
+      <input id="filter" placeholder="Filtrar tarefas..." />
+      <div id="list"></div>
+      <div id="status"></div>
+    </div>
+
+    <script>
+      const { ipcRenderer } = require('electron');
+      const $ = (id) => document.getElementById(id);
+
+      let tasks = [];
+      let running = null;
+
+      const setStatus = (text) => ($('status').textContent = text);
+
+      function fmt(ms) {
+        const s = Math.max(0, Math.floor(ms / 1000));
+        return [s / 3600, (s % 3600) / 60, s % 60]
+          .map((n) => String(Math.floor(n)).padStart(2, '0'))
+          .join(':');
+      }
+
+      async function call(channel, ...args) {
+        try {
+          return await ipcRenderer.invoke(channel, ...args);
+        } catch (err) {
+          setStatus('Erro: ' + String(err.message || err).replace(/^Error: /, ''));
+          return null;
+        }
+      }
+
+      async function refreshCurrent() {
+        running = await call('current');
+        $('stop').disabled = !running;
+        if (running) {
+          $('task').textContent = running.task?.name || 'Timer sem tarefa';
+        } else {
+          $('task').textContent = 'Nenhum timer rodando';
+          $('clock').textContent = '00:00:00';
+        }
+      }
+
+      async function refreshTasks() {
+        setStatus('Carregando tarefas...');
+        const result = await call('tasks');
+        if (!result) return;
+        tasks = result;
+        setStatus(`${tasks.length} tarefas atribuídas a você.`);
+        render();
+      }
+
+      function render() {
+        const needle = $('filter').value.trim().toLowerCase();
+        $('list').innerHTML = '';
+        for (const task of tasks) {
+          const hay = `${task.name} ${task.list} ${task.status}`.toLowerCase();
+          if (needle && !hay.includes(needle)) continue;
+          const div = document.createElement('div');
+          div.className = 'item';
+          div.innerHTML = `<b></b><span></span>`;
+          div.querySelector('b').textContent = task.name;
+          div.querySelector('span').textContent = [task.list, task.status]
+            .filter(Boolean)
+            .join(' · ');
+          div.onclick = () => startTask(task);
+          $('list').appendChild(div);
+        }
+      }
+
+      async function startTask(task) {
+        setStatus('Iniciando: ' + task.name);
+        if (await call('start', task.id)) {
+          setStatus('Rodando: ' + task.name);
+          refreshCurrent();
+        }
+      }
+
+      $('stop').onclick = async () => {
+        setStatus('Parando...');
+        await call('stop');
+        setStatus('Timer parado.');
+        refreshCurrent();
+      };
+      $('refresh').onclick = refreshTasks;
+      $('filter').oninput = render;
+
+      $('saveToken').onclick = async () => {
+        const token = $('token').value.trim();
+        if (!token) return;
+        const username = await call('save-token', token);
+        if (username) start(username);
+      };
+
+      ipcRenderer.on('refresh', refreshCurrent);
+
+      // Cronômetro local; a cada 20s confere com o ClickUp.
+      setInterval(() => {
+        if (!running?.start) return;
+        const elapsed = fmt(Date.now() - Number(running.start));
+        $('clock').textContent = elapsed;
+        ipcRenderer.send('tooltip', `ClickUp Timer — ${elapsed} · ${running.task?.name || ''}`);
+      }, 1000);
+      setInterval(refreshCurrent, 20000);
+
+      function start(username) {
+        $('setup').style.display = 'none';
+        $('app').style.display = 'flex';
+        setStatus(`Conectado como ${username}.`);
+        refreshCurrent();
+        refreshTasks();
+      }
+
+      (async () => {
+        const info = await call('bootstrap');
+        if (!info) return;
+        if (info.needsToken) {
+          $('setup').style.display = 'flex';
+        } else {
+          start(info.username);
+        }
+      })();
+    </script>
+  </body>
+</html>
