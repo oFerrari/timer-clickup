@@ -377,7 +377,12 @@ function setRunning(entry) {
 
 function broadcast() {
   if (switching) return;   // evita o "piscar" para Parado durante a troca
-  const payload = { running, opacity: bubbleOpacity(), logo: logoUrl() };
+  const payload = {
+    running,
+    opacity: bubbleOpacity(),
+    logo: logoUrl(),
+    bubble: !!(bubble && !bubble.isDestroyed()),
+  };
   if (win && !win.isDestroyed()) win.webContents.send('state', payload);
   if (bubble && !bubble.isDestroyed()) bubble.webContents.send('state', payload);
 }
@@ -484,7 +489,17 @@ function showBubble(on) {
     bubble = null;
   }
   updateTray();
+  broadcast();
   return !!on;
+}
+
+// Ocultar pedido pela propria bolinha (botao "-" ou menu dela): fecha a janela
+// so no proximo tick, para nao destrui-la no meio do IPC que ela disparou.
+function hideBubbleFromItself() {
+  setImmediate(() => {
+    showBubble(false);               // ja atualiza a bandeja e o botao do painel
+    win?.webContents.send('refresh');
+  });
 }
 
 // --------------------------------------------------------------------------- //
@@ -601,6 +616,25 @@ ipcMain.handle('shell:open', (_e, url) => shell.openExternal(url));
 ipcMain.handle('win:minimize', () => win?.minimize());
 ipcMain.handle('win:hide', () => { win?.hide(); updateTray(); });
 ipcMain.handle('win:toggle-main', () => toggleWindow());
+ipcMain.handle('bubble:hide', () => { hideBubbleFromItself(); return true; });
+ipcMain.handle('bubble:menu', () => {
+  Menu.buildFromTemplate([
+    { label: trayTitle(), enabled: false },
+    { type: 'separator' },
+    { label: 'Abrir painel', click: toggleWindow },
+    { label: 'Ocultar bolinha', click: hideBubbleFromItself },
+    { type: 'separator' },
+    {
+      label: 'Parar timer',
+      enabled: !!running,
+      click: async () => {
+        try { await stopTimer(); } catch (err) { logErr('parar timer pela bolinha:', err.message); }
+        win?.webContents.send('refresh');
+      },
+    },
+  ]).popup({ window: bubble || undefined });
+  return true;
+});
 ipcMain.on('tray:tooltip', (_e, text) => tray?.setToolTip(text));
 
 // --------------------------------------------------------------------------- //

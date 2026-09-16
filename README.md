@@ -62,9 +62,15 @@ Uma pílula de vidro que fica por cima de tudo, com o logo, o cronômetro e o no
 | Mover | Arraste (a posição fica salva) |
 | Abrir/fechar o painel | Clique nela |
 | Parar o timer | Passe o mouse e clique no quadrado |
-| Ligar/desligar | Botão ◉ na barra de título, Configurações ou menu da bandeja |
+| Ocultar | Passe o mouse e clique no **–** (ou botão direito → *Ocultar bolinha*) |
+| Trazer de volta / ligar / desligar | Botão ◉ na barra de título, Configurações ou menu da bandeja |
 
-Em repouso ela fica translúcida; com o mouse em cima vai a 100%.
+Em repouso ela fica translúcida; com o mouse em cima vai a 100%. Um selo verde
+no logo marca o timer rodando.
+
+O **–** faz o mesmo que desligar a bolinha pelo botão ◉: ela some e o botão do
+painel muda de estado na hora. Botão direito em qualquer ponto dela abre o menu
+com abrir painel, ocultar e parar o timer.
 
 ### 3. Ícone da bandeja
 
@@ -257,6 +263,9 @@ perguntar sobre limpar o cache. O Explorer reinicia e volta em um segundo.
 
 Ela pode ter ficado fora da tela se você desconectou um monitor. Desligue e
 ligue de novo pelo botão ◉ — ela volta para o canto inferior direito.
+
+Se você clicou no **–** dela, ela foi ocultada: religue pelo botão ◉, por
+Configurações ou pelo menu da bandeja.
 
 </details>
 

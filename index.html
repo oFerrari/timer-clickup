@@ -440,6 +440,11 @@
 
       // O processo principal avisa quando o timer muda (inclusive pela bolinha).
       api.onState((state) => {
+        // a bolinha pode ser desligada por ela mesma ou pela bandeja
+        if ('bubble' in state && state.bubble !== bubbleOn) {
+          bubbleOn = !!state.bubble;
+          paintBubbleState();
+        }
         if (pendingStart && (!state.running || state.running.taskId !== pendingStart)) return;
         running = state.running;
         paintAll();

@@ -21,6 +21,8 @@ contextBridge.exposeInMainWorld('clickup', {
   minimize: () => ipcRenderer.invoke('win:minimize'),
   hide: () => ipcRenderer.invoke('win:hide'),
   toggleMain: () => ipcRenderer.invoke('win:toggle-main'),
+  bubbleHide: () => ipcRenderer.invoke('bubble:hide'),
+  bubbleMenu: () => ipcRenderer.invoke('bubble:menu'),
   tooltip: (text) => ipcRenderer.send('tray:tooltip', text),
 
   onRefresh: (cb) => ipcRenderer.on('refresh', () => cb()),
